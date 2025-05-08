@@ -80,7 +80,7 @@ uint8_t choose_direction(int x, int y) {
 }
 
 // Call this each tick with updated position of all players
-void update_game_state(int tick_positions[MAX_PLAYERS][2]) {
+int8_t update_game_state(int tick_positions[MAX_PLAYERS][2]) {
     // First mark the new positions and detect inactive players
     for (int i = 0; i < MAX_PLAYERS; i++) {
         int new_x = tick_positions[i][0];
@@ -103,6 +103,7 @@ void update_game_state(int tick_positions[MAX_PLAYERS][2]) {
             game_board[wrap_y(new_y)][wrap_x(new_x)] = i + 1;
         }
     }
+    return 0; //TODO: insert int to return (UP = 1, RIGHT = 2, DOWN = 3, LEFT = 4)
 }
 
 // Usage: after parsing TICK packet and updating player positions

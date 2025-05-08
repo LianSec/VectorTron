@@ -1,15 +1,35 @@
 #include <Arduino.h>
 #include <CAN.h>
 #include "Hackathon25.h"
-#include "bot_logic.h"
 
-void rcv_Tick() {
+
+// Global variables
+const uint32_t hardware_ID = (*(RoReg *)0x008061FCUL);
+uint8_t player_ID = 0;
+uint8_t game_ID = 0;
+uint8_t dx[4]; // x-positions
+uint8_t dy[4]; // y-positions
+
+int tick_positions[MAX_PLAYERS][dx,dy]; // positions of the players
+
+// Function prototypes
+void send_Join();
+void rcv_Player();
+void rcv_Game();
+void send_Name(const char *name);
+void send_move(char *direction);
+
+
+
+void rcv_Tick()
+{
   MSG_Tick msg_tick;
   CAN.readBytes((uint8_t *)&msg_tick, sizeof(MSG_Tick));
 
   // Prepare tick_positions for bot logic
   int tick_positions[MAX_PLAYERS][2];
-  for (int i = 0; i < MAX_PLAYERS; i++) {
+  for (int i = 0; i < MAX_PLAYERS; i++)
+  {
     tick_positions[i][0] = msg_tick.PlayerX[i];
     tick_positions[i][1] = msg_tick.PlayerY[i];
   }
@@ -32,17 +52,6 @@ void rcv_Tick() {
 }
 
 
-// Global variables
-const uint32_t hardware_ID = (*(RoReg *)0x008061FCUL);
-uint8_t player_ID = 0;
-uint8_t game_ID = 0;
-
-// Function prototypes
-void send_Join();
-void rcv_Player();
-void rcv_Game();
-void send_Name(const char* name);
-void send_move();
 
 // CAN receive callback
 void onReceive(int packetSize)
@@ -146,37 +155,44 @@ void rcv_Player()
                 msg_player.PlayerID, player_ID, msg_player.HardwareID, hardware_ID);
 }
 
-void send_GameAck() { // to send the ack message and start the game
+void send_GameAck()
+{ // to send the ack message and start the game
   CAN.beginPacket(Gameack);
   CAN.write(player_ID);
   CAN.endPacket();
   Serial.printf("GameACK sent from Player ID: %u\n", player_ID);
 }
 
-void rcv_Game() {
+void rcv_Game()
+{
   MSG_Game msg_game;
-  CAN.readBytes((uint8_t*)&msg_game, sizeof(MSG_Game));
+  CAN.readBytes((uint8_t *)&msg_game, sizeof(MSG_Game));
 
-  for (int i = 0; i < 4; i++) {
-      if (msg_game.playerIDs[i] == player_ID) {
-          Serial.println("I'm part of this game – sending gameack.");
-          send_GameAck();
-          return;
-      }
+  for (int i = 0; i < 4; i++)
+  {
+    if (msg_game.playerIDs[i] == player_ID)
+    {
+      Serial.println("I'm part of this game – sending gameack.");
+      send_GameAck();
+      return;
+    }
   }
 
   Serial.println("Not part of this game.");
 }
 
-void send_Name(const char* name) {
+void send_Name(const char *name)
+{
   uint8_t length = strlen(name);
-  if (length > 20) length = 20; // max. 20 Zeichen
+  if (length > 20)
+    length = 20; // max. 20 Zeichen
 
   // Rename-Paket (erste 6 Zeichen)
-  struct __attribute__((packed)) RenamePacket {
-      uint8_t playerID;
-      uint8_t length;
-      char first6[6];
+  struct __attribute__((packed)) RenamePacket
+  {
+    uint8_t playerID;
+    uint8_t length;
+    char first6[6];
   } renamePacket;
 
   renamePacket.playerID = player_ID;
@@ -185,30 +201,39 @@ void send_Name(const char* name) {
   strncpy(renamePacket.first6, name, 6);
 
   CAN.beginPacket(0x500);
-  CAN.write((uint8_t*)&renamePacket, sizeof(renamePacket));
+  CAN.write((uint8_t *)&renamePacket, sizeof(renamePacket));
   CAN.endPacket();
   delay(10); // kurze Pause, um Puffer zu schonen
 
   // Folgepakete (je 7 Zeichen)
-  const char* ptr = name + 6;
+  const char *ptr = name + 6;
   uint8_t remaining = length > 6 ? length - 6 : 0;
 
-  while (remaining > 0) {
-      struct __attribute__((packed)) RenameFollowPacket {
-          uint8_t playerID;
-          char next7[7];
-      } followPacket;
+  while (remaining > 0)
+  {
+    struct __attribute__((packed)) RenameFollowPacket
+    {
+      uint8_t playerID;
+      char next7[7];
+    } followPacket;
 
-      followPacket.playerID = player_ID;
-      memset(followPacket.next7, ' ', 7);
-      strncpy(followPacket.next7, ptr, 7);
+    followPacket.playerID = player_ID;
+    memset(followPacket.next7, ' ', 7);
+    strncpy(followPacket.next7, ptr, 7);
 
-      CAN.beginPacket(0x510);
-      CAN.write((uint8_t*)&followPacket, sizeof(followPacket));
-      CAN.endPacket();
+    CAN.beginPacket(0x510);
+    CAN.write((uint8_t *)&followPacket, sizeof(followPacket));
+    CAN.endPacket();
 
-      ptr += 7;
-      remaining = remaining > 7 ? remaining - 7 : 0;
-      delay(10);
+    ptr += 7;
+    remaining = remaining > 7 ? remaining - 7 : 0;
+    delay(10);
   }
+}
+
+void send_move(char* direction){
+  CAN.beginPacket(Move);
+  CAN.write(player_ID);
+  CAN.write(update_game_state(tick_positions[MAX_PLAYERS][2]));
+  CAN.endPacket();
 }

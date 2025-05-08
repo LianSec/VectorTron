@@ -1,25 +1,32 @@
 #ifndef HACKATHON25_H
 #define HACKATHON25_H
 
-# include <stdint.h>
+#include <stdint.h>
+#include <stdbool.h>
 
-typedef struct __attribute__((__packed__)) {
-    uint8_t GameID;
-    uint8_t PlayerX[MAX_PLAYERS]; // X positions for players 1–4
-    uint8_t PlayerY[MAX_PLAYERS]; // Y positions for players 1–4
-  } MSG_Tick;
+// ========== SPIELKONSTANTEN ==========
+#define GRID_WIDTH 64
+#define GRID_HEIGHT 64
+#define MAX_PLAYERS 4
 
+// ========== BEWEGUNGSRICHTUNGEN ==========
+enum Direction { UP = 0, RIGHT = 1, DOWN = 2, LEFT = 3 };
 
+// ========== BOT-LOGIK FUNKTIONSPROTOTYPEN ==========
+uint8_t choose_direction(int x, int y);
+uint8_t update_game_state(int tick_positions[MAX_PLAYERS][2]);
 
+// ========== CAN-NACHRICHTENTYPEN ==========
 enum CAN_MSGs {
-    Join = 0x100, // client → server: join with HardwareID
-    Leave = 0x101, // client → server: optional leave
-    Player = 0x110, // server → client: assigned PlayerID
-    Game = 0x040, // server → clients: new game with 4 players
-    Gameack = 0x120, // client → server: confirm game participation
-    Move = 0x090 // client → server: send direction to move
+    Join     = 0x100,  // client → server: join with HardwareID
+    Leave    = 0x101,  // client → server: optional leave
+    Player   = 0x110,  // server → client: assigned PlayerID
+    Game     = 0x040,  // server → clients: new game with 4 players
+    Gameack  = 0x120,  // client → server: confirm game participation
+    Move     = 0x090   // client → server: send direction to move
 };
 
+// ========== CAN-NACHRICHTENSTRUKTUREN ==========
 struct __attribute__((packed)) MSG_Join {
     uint32_t HardwareID;
 };
@@ -30,11 +37,18 @@ struct __attribute__((packed)) MSG_Player {
 };
 
 struct __attribute__((packed)) MSG_Game {
-    uint8_t playerIDs[4];
+    uint8_t playerIDs[MAX_PLAYERS];
 };
 
-struct __attribute__((packed)) MSG_Move{
-    uint8_t Player_ID;
-    uint8_t Direction; // UP = 1, RIGHT = 2, DOWN = 3, LEFT = 4
+struct __attribute__((packed)) MSG_Tick {
+    uint8_t GameID;
+    uint8_t PlayerX[MAX_PLAYERS];
+    uint8_t PlayerY[MAX_PLAYERS];
 };
-#endif
+
+struct __attribute__((packed)) MSG_Move {
+    uint8_t Player_ID;
+    uint8_t Direction; // 0=UP, 1=RIGHT, 2=DOWN, 3=LEFT
+};
+
+#endif 
