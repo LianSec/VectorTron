@@ -2,7 +2,6 @@
 #include <CAN.h>
 #include "Hackathon25.h"
 
-
 // Global variables
 const uint32_t hardware_ID = (*(RoReg *)0x008061FCUL);
 uint8_t player_ID = 0;
@@ -14,7 +13,7 @@ bool isDead = false;
 void send_Join();
 void rcv_Player();
 void rcv_Game();
-void send_Name(const char* name);
+void send_Name(const char *name);
 void rcv_GameState();
 void send_Move(uint8_t direction);
 
@@ -45,7 +44,8 @@ void onReceive(int packetSize)
 }
 
 // CAN setup
-bool setupCan(long baudRate){
+bool setupCan(long baudRate)
+{
   pinMode(PIN_CAN_STANDBY, OUTPUT);
   digitalWrite(PIN_CAN_STANDBY, false);
   pinMode(PIN_CAN_BOOSTEN, OUTPUT);
@@ -59,7 +59,8 @@ bool setupCan(long baudRate){
 }
 
 // Setup
-void setup(){
+void setup()
+{
   Serial.begin(115200);
   while (!Serial)
     ;
@@ -80,21 +81,34 @@ void setup(){
 }
 
 // Loop remains empty, logic is event-driven via CAN callback
-void loop() {
-  if (isDead) return;
-  if (Serial.available()) {
+void loop()
+{
+  if (isDead)
+    return;
+  if (Serial.available())
+  {
     char key = Serial.read();
-    switch (key) {
-      case 'w': send_Move(UP); break;
-      case 'd': send_Move(RIGHT); break;
-      case 's': send_Move(DOWN); break;
-      case 'a': send_Move(LEFT); break;
+    switch (key)
+    {
+    case 'w':
+      send_Move(UP);
+      break;
+    case 'd':
+      send_Move(RIGHT);
+      break;
+    case 's':
+      send_Move(DOWN);
+      break;
+    case 'a':
+      send_Move(LEFT);
+      break;
     }
   }
 }
 
 // Send JOIN packet via CAN
-void send_Join(){
+void send_Join()
+{
   MSG_Join msg_join;
   msg_join.HardwareID = hardware_ID;
 
@@ -106,7 +120,8 @@ void send_Join(){
 }
 
 // Receive player information
-void rcv_Player(){
+void rcv_Player()
+{
   MSG_Player msg_player;
   CAN.readBytes((uint8_t *)&msg_player, sizeof(MSG_Player));
 
@@ -152,22 +167,28 @@ void rcv_Game()
   Serial.println("Not part of this game.");
 }
 
-void rcv_GameState(){
+void rcv_GameState()
+{
   MSG_State msg_gamestate;
-  CAN.readBytes((uint8_t*)&msg_gamestate, sizeof(msg_gamestate));
-  for (int i = 0; i < 4; i++) {
+  CAN.readBytes((uint8_t *)&msg_gamestate, sizeof(msg_gamestate));
+  for (int i = 0; i < 4; i++)
+  {
     uint8_t x = msg_gamestate.player[i][0];
     uint8_t y = msg_gamestate.player[i][1];
 
-    if (x == 255 && y == 255) {
+    if (x == 255 && y == 255)
+    {
       Serial.printf("Player %d is dead.\n", i + 1);
-    } else {
+    }
+    else
+    {
       Serial.printf("Player %d at position (%d, %d)\n", i + 1, x, y);
     }
   }
 }
 
-void send_Name(const char* name) {
+void send_Name(const char *name)
+{
   uint8_t length = strlen(name);
   if (length > 20)
     length = 20; // max. 20 Zeichen
@@ -186,7 +207,7 @@ void send_Name(const char* name) {
   strncpy(renamePacket.first6, name, 6);
 
   CAN.beginPacket(Name);
-  CAN.write((uint8_t*)&renamePacket, sizeof(renamePacket));
+  CAN.write((uint8_t *)&renamePacket, sizeof(renamePacket));
   CAN.endPacket();
   delay(10); // kurze Pause, um Puffer zu schonen
 
@@ -216,11 +237,13 @@ void send_Name(const char* name) {
   }
 }
 
-void send_Move(uint8_t direction) {
-  if ((currentDirection == UP    && direction == DOWN) ||
-      (currentDirection == DOWN  && direction == UP)   ||
-      (currentDirection == LEFT  && direction == RIGHT)||
-      (currentDirection == RIGHT && direction == LEFT)) {
+void send_Move(uint8_t direction)
+{
+  if ((currentDirection == UP && direction == DOWN) ||
+      (currentDirection == DOWN && direction == UP) ||
+      (currentDirection == LEFT && direction == RIGHT) ||
+      (currentDirection == RIGHT && direction == LEFT)) // check for backward movement
+  {
     Serial.println("Invalid move: backward movement is ignored.");
     return;
   }
