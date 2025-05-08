@@ -4,11 +4,11 @@
 #include <stdint.h>
 
 enum CAN_MSGs {
-    Join = 0x100,
-    Leave = 0x101,
-    Player = 0x110,
-    Game = 0x040,
-    Gameack = 0x120
+    Join = 0x100, // client → server: join with HardwareID
+    Leave = 0x101, // client → server: optional leave
+    Player = 0x110, // server → client: assigned PlayerID
+    Game = 0x040, // server → clients: new game with 4 players
+    Gameack = 0x120 // client → server: confirm game participation
 };
 
 struct __attribute__((packed)) MSG_Join {
@@ -21,11 +21,7 @@ struct __attribute__((packed)) MSG_Player {
 };
 
 struct __attribute__((packed)) MSG_Game {
-    uint8_t Player1;
-    uint8_t Player2;
-    uint8_t Player3;
-    uint8_t Player4;
+    uint8_t playerIDs[4];
 };
-
 
 #endif
