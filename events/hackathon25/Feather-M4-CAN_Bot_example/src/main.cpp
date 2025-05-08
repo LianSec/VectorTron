@@ -1,6 +1,36 @@
 #include <Arduino.h>
 #include <CAN.h>
 #include "Hackathon25.h"
+#include "bot_logic.h"
+
+void rcv_Tick() {
+  MSG_Tick msg_tick;
+  CAN.readBytes((uint8_t *)&msg_tick, sizeof(MSG_Tick));
+
+  // Prepare tick_positions for bot logic
+  int tick_positions[MAX_PLAYERS][2];
+  for (int i = 0; i < MAX_PLAYERS; i++) {
+    tick_positions[i][0] = msg_tick.PlayerX[i];
+    tick_positions[i][1] = msg_tick.PlayerY[i];
+  }
+
+  update_game_state(tick_positions); // from bot_logic.c
+
+  // Only make a move if we are alive
+  int my_x = tick_positions[player_ID - 1][0];
+  int my_y = tick_positions[player_ID - 1][1];
+
+  uint8_t dir = choose_direction(my_x, my_y); // from bot_logic.c
+
+  // Send MOVE packet
+  CAN.beginPacket(Move);
+  CAN.write(player_ID); // who is moving
+  CAN.write(dir);       // where to
+  CAN.endPacket();
+
+  Serial.printf("Sent MOVE: Player %u -> Dir %u\n", player_ID, dir);
+}
+
 
 // Global variables
 const uint32_t hardware_ID = (*(RoReg *)0x008061FCUL);
@@ -27,6 +57,10 @@ void onReceive(int packetSize)
     case Game:
       Serial.println("CAN: Received Game packet");
       rcv_Game();
+      break;
+    case Tick:
+      Serial.println("CAN: Received Tick packet");
+      rcv_Tick();
       break;
     default:
       Serial.println("CAN: Received unknown packet");
