@@ -18,15 +18,16 @@ uint8_t update_game_state(int tick_positions[MAX_PLAYERS][2]);
 
 // ========== CAN-NACHRICHTENTYPEN ==========
 enum CAN_MSGs {
-    Join     = 0x100,  // client → server: join with HardwareID
-    Leave    = 0x101,  // client → server: optional leave
-    Player   = 0x110,  // server → client: assigned PlayerID
-    Game     = 0x040,  // server → clients: new game with 4 players
-    Gameack  = 0x120,  // client → server: confirm game participation
-    Move     = 0x090,   // client → server: send direction to move
+    Join = 0x100, // client → server: join with HardwareID
+    Leave = 0x101, // client → server: optional leave
+    Player = 0x110, // server → client: assigned PlayerID
+    Game = 0x040, // server → clients: new game with 4 players
+    Name = 0x500, //  client → server: update name
+    Gameack = 0x120, // client → server: confirm game participation
+    Gamestate = 0x050, // server → client: 
+    Move = 0x090 // client →  server:
 };
 
-// ========== CAN-NACHRICHTENSTRUKTUREN ==========
 struct __attribute__((packed)) MSG_Join {
     uint32_t HardwareID;
 };
@@ -40,15 +41,12 @@ struct __attribute__((packed)) MSG_Game {
     uint8_t playerIDs[MAX_PLAYERS];
 };
 
-struct __attribute__((packed)) MSG_Tick {
-    uint8_t GameID;
-    uint8_t PlayerX[MAX_PLAYERS];
-    uint8_t PlayerY[MAX_PLAYERS];
-};
+struct __attribute__((packed)) MSG_State {
+    uint8_t player[4][2]; // [4 Spieler][x,y]
+  };  
 
 struct __attribute__((packed)) MSG_Move {
     uint8_t Player_ID;
     uint8_t Direction; // 0=UP, 1=RIGHT, 2=DOWN, 3=LEFT
 };
-
-#endif 
+#endif
