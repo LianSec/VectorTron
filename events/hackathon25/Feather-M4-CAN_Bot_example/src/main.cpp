@@ -2,6 +2,7 @@
 #include <CAN.h>
 #include "Hackathon25.h"
 
+
 // Global variables
 const uint32_t hardware_ID = (*(RoReg *)0x008061FCUL);
 uint8_t player_ID = 0;
@@ -126,23 +127,27 @@ void rcv_Player(){
                 msg_player.PlayerID, player_ID, msg_player.HardwareID, hardware_ID);
 }
 
-void send_GameAck() {
+void send_GameAck()
+{ // to send the ack message and start the game
   CAN.beginPacket(Gameack);
   CAN.write(player_ID);
   CAN.endPacket();
   Serial.printf("GameACK sent from Player ID: %u\n", player_ID);
 }
 
-void rcv_Game() {
+void rcv_Game()
+{
   MSG_Game msg_game;
-  CAN.readBytes((uint8_t*)&msg_game, sizeof(MSG_Game));
+  CAN.readBytes((uint8_t *)&msg_game, sizeof(MSG_Game));
 
-  for (int i = 0; i < 4; i++) {
-      if (msg_game.playerIDs[i] == player_ID) {
-          Serial.println("I'm part of this game – sending gameack.");
-          send_GameAck();
-          return;
-      }
+  for (int i = 0; i < 4; i++)
+  {
+    if (msg_game.playerIDs[i] == player_ID)
+    {
+      Serial.println("I'm part of this game – sending gameack.");
+      send_GameAck();
+      return;
+    }
   }
   Serial.println("Not part of this game.");
 }
@@ -164,13 +169,15 @@ void rcv_GameState(){
 
 void send_Name(const char* name) {
   uint8_t length = strlen(name);
-  if (length > 20) length = 20; // max. 20 Zeichen
+  if (length > 20)
+    length = 20; // max. 20 Zeichen
 
   // Rename-Paket (erste 6 Zeichen)
-  struct __attribute__((packed)) RenamePacket {
-      uint8_t playerID;
-      uint8_t length;
-      char first6[6];
+  struct __attribute__((packed)) RenamePacket
+  {
+    uint8_t playerID;
+    uint8_t length;
+    char first6[6];
   } renamePacket;
 
   renamePacket.playerID = player_ID;
@@ -184,26 +191,28 @@ void send_Name(const char* name) {
   delay(10); // kurze Pause, um Puffer zu schonen
 
   // Folgepakete (je 7 Zeichen)
-  const char* ptr = name + 6;
+  const char *ptr = name + 6;
   uint8_t remaining = length > 6 ? length - 6 : 0;
 
-  while (remaining > 0) {
-      struct __attribute__((packed)) RenameFollowPacket {
-          uint8_t playerID;
-          char next7[7];
-      } followPacket;
+  while (remaining > 0)
+  {
+    struct __attribute__((packed)) RenameFollowPacket
+    {
+      uint8_t playerID;
+      char next7[7];
+    } followPacket;
 
-      followPacket.playerID = player_ID;
-      memset(followPacket.next7, ' ', 7);
-      strncpy(followPacket.next7, ptr, 7);
+    followPacket.playerID = player_ID;
+    memset(followPacket.next7, ' ', 7);
+    strncpy(followPacket.next7, ptr, 7);
 
-      CAN.beginPacket(0x510);
-      CAN.write((uint8_t*)&followPacket, sizeof(followPacket));
-      CAN.endPacket();
+    CAN.beginPacket(0x510);
+    CAN.write((uint8_t *)&followPacket, sizeof(followPacket));
+    CAN.endPacket();
 
-      ptr += 7;
-      remaining = remaining > 7 ? remaining - 7 : 0;
-      delay(10);
+    ptr += 7;
+    remaining = remaining > 7 ? remaining - 7 : 0;
+    delay(10);
   }
 }
 
