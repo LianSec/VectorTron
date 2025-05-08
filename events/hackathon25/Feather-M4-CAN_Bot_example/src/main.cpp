@@ -17,6 +17,7 @@ void send_Name(const char *name);
 void rcv_GameState();
 void send_Move(uint8_t direction);
 void rcv_Die();
+void rcv_Gamefinish();
 
 // CAN receive callback
 void onReceive(int packetSize)
@@ -183,7 +184,7 @@ void rcv_Game()
   Serial.println("Not part of this game.");
 }
 
-void rcv_GameState()
+void rcv_GameState() // sets player positions
 {
   MSG_State msg_gamestate;
   CAN.readBytes((uint8_t *)&msg_gamestate, sizeof(msg_gamestate));
@@ -192,14 +193,6 @@ void rcv_GameState()
     uint8_t x = msg_gamestate.player[i][0];
     uint8_t y = msg_gamestate.player[i][1];
 
-    if (x == 255 && y == 255)
-    {
-      Serial.printf("Player %d is dead.\n", i + 1);
-    }
-    else
-    {
-      Serial.printf("Player %d at position (%d, %d)\n", i + 1, x, y);
-    }
   }
 }
 
@@ -272,4 +265,13 @@ void send_Move(uint8_t direction)
 
   currentDirection = direction;
   Serial.printf("Sent move | Player ID: %u | Direction: %u\n", player_ID, direction);
+}
+
+void rcv_Gamefinish(){
+  MSG_Gamefinish msg_gamefinish;
+  CAN.readBytes((uint8_t *)&msg_gamefinish, sizeof(MSG_Gamefinish));
+  Serial.printf("Game is finished.");
+  for(int i = 0; i < 8; i+=2){
+    Serial.printf("Player %u has %u points.\n", msg_gamefinish.Player_IDs[i], msg_gamefinish.Player_IDs[i+1]);
+  };
 }

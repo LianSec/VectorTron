@@ -25,8 +25,9 @@ enum CAN_MSGs {
     Name = 0x500, //  client → server: update name
     Gameack = 0x120, // client → server: confirm game participation
     Gamestate = 0x050, // server → client: 
-    Move = 0x090, // client →  server:
-    Dead = 0x080 
+    Move = 0x090, // client → server:
+    Dead = 0x080,
+    Gamefinish = 0x070 // client → server: confirms game is over 
 };
 
 struct __attribute__((packed)) MSG_Join {
@@ -49,5 +50,8 @@ struct __attribute__((packed)) MSG_State {
 struct __attribute__((packed)) MSG_Move {
     uint8_t Player_ID;
     uint8_t Direction; // 1=UP, 2=RIGHT, 3=DOWN, 4=LEFT
+};
+struct __attribute__((packed)) MSG_Gamefinish {
+    uint8_t Player_IDs[8];
 };
 #endif
