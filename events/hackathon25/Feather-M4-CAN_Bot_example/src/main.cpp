@@ -10,7 +10,7 @@ uint8_t game_ID = 0;
 uint8_t dx[4]; // x-positions
 uint8_t dy[4]; // y-positions
 
-int tick_positions[MAX_PLAYERS][dx,dy]; // positions of the players
+int tick_positions[MAX_PLAYERS][2]; // positions of the players
 
 // Function prototypes
 void send_Join();
@@ -27,7 +27,6 @@ void rcv_Tick()
   CAN.readBytes((uint8_t *)&msg_tick, sizeof(MSG_Tick));
 
   // Prepare tick_positions for bot logic
-  int tick_positions[MAX_PLAYERS][2];
   for (int i = 0; i < MAX_PLAYERS; i++)
   {
     tick_positions[i][0] = msg_tick.PlayerX[i];
@@ -68,7 +67,7 @@ void onReceive(int packetSize)
       Serial.println("CAN: Received Game packet");
       rcv_Game();
       break;
-    case Tick:
+    case Gamestate:
       Serial.println("CAN: Received Tick packet");
       rcv_Tick();
       break;
@@ -232,8 +231,20 @@ void send_Name(const char *name)
 }
 
 void send_move(char* direction){
+
+  // Only make a move if we are alive
+  int my_x = tick_positions[player_ID - 1][0];
+  int my_y = tick_positions[player_ID - 1][1];
+
+  uint8_t dir = choose_direction(my_x, my_y); // calculate direction
+
+  MSG_MOVE move_msg;
+  move_msg.Player_ID = player_ID;
+  move_msg.Direction = dir;
+
   CAN.beginPacket(Move);
-  CAN.write(player_ID);
-  CAN.write(update_game_state(tick_positions[MAX_PLAYERS][2]));
+  CAN.write((uint8_t*)&move_msg, sizeof(MSG_Move));
   CAN.endPacket();
+
+  Serial.printf("MOVE sent: Player %u -> Direction %u\n", player_ID, dir);
 }
