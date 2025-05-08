@@ -1,7 +1,15 @@
 #ifndef HACKATHON25_H
 #define HACKATHON25_H
 
-#include <stdint.h>
+# include <stdint.h>
+
+typedef struct __attribute__((__packed__)) {
+    uint8_t GameID;
+    uint8_t PlayerX[MAX_PLAYERS]; // X positions for players 1–4
+    uint8_t PlayerY[MAX_PLAYERS]; // Y positions for players 1–4
+  } MSG_Tick;
+
+
 
 enum CAN_MSGs {
     Join = 0x100, // client → server: join with HardwareID
