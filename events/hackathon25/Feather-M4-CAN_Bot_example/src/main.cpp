@@ -111,7 +111,7 @@ void rcv_Player()
                 msg_player.PlayerID, player_ID, msg_player.HardwareID, hardware_ID);
 }
 
-void send_GameAck() {
+void send_GameAck() { // to send the ack message and start the game
   CAN.beginPacket(Gameack);
   CAN.write(player_ID);
   CAN.endPacket();
