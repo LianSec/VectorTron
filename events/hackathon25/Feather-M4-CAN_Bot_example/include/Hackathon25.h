@@ -10,7 +10,7 @@
 #define MAX_PLAYERS 4
 
 // ========== BEWEGUNGSRICHTUNGEN ==========
-enum Direction { UP = 0, RIGHT = 1, DOWN = 2, LEFT = 3 };
+enum Direction { UP = 1, RIGHT = 2, DOWN = 3, LEFT = 4 };
 
 // ========== BOT-LOGIK FUNKTIONSPROTOTYPEN ==========
 uint8_t choose_direction(int x, int y);
@@ -25,7 +25,8 @@ enum CAN_MSGs {
     Name = 0x500, //  client → server: update name
     Gameack = 0x120, // client → server: confirm game participation
     Gamestate = 0x050, // server → client: 
-    Move = 0x090 // client →  server:
+    Move = 0x090, // client →  server:
+    Dead = 0x080 
 };
 
 struct __attribute__((packed)) MSG_Join {
@@ -47,6 +48,6 @@ struct __attribute__((packed)) MSG_State {
 
 struct __attribute__((packed)) MSG_Move {
     uint8_t Player_ID;
-    uint8_t Direction; // 0=UP, 1=RIGHT, 2=DOWN, 3=LEFT
+    uint8_t Direction; // 1=UP, 2=RIGHT, 3=DOWN, 4=LEFT
 };
 #endif

@@ -17,6 +17,7 @@ void rcv_Game();
 void send_Name(const char* name);
 void rcv_GameState();
 void send_Move(uint8_t direction);
+void rcv_Die();
 
 // CAN receive callback
 void onReceive(int packetSize)
@@ -37,6 +38,10 @@ void onReceive(int packetSize)
       Serial.println("CAN:");
       rcv_GameState();
       break;
+    case Dead:
+      Serial.println("CAN: Received Die packet");
+      rcv_Die();
+    break;
     default:
       Serial.println("CAN: Received unknown packet");
       break;
@@ -90,6 +95,17 @@ void loop() {
       case 's': send_Move(DOWN); break;
       case 'a': send_Move(LEFT); break;
     }
+  }
+}
+void rcv_Die() {
+  uint8_t deadPlayer;
+  CAN.readBytes(&deadPlayer, 1);
+
+  if (deadPlayer == player_ID) {
+    Serial.println("You have died.");
+    isDead = true;  // blockiere Bewegung etc.
+  } else {
+    Serial.printf("Player %u has died.\n", deadPlayer);
   }
 }
 
@@ -178,8 +194,9 @@ void send_Name(const char* name) {
     uint8_t playerID;
     uint8_t length;
     char first6[6];
-  } renamePacket;
-
+  } 
+  
+  renamePacket;
   renamePacket.playerID = player_ID;
   renamePacket.length = length;
   memset(renamePacket.first6, ' ', 6);
