@@ -36,13 +36,21 @@ void onReceive(int packetSize)
       rcv_Game();
       break;
     case Gamestate:
-      Serial.println("CAN:");
+      Serial.println("CAN: Received Gamestate packet");
       rcv_GameState();
       break;
-    case Dead:
+    case Die:
       Serial.println("CAN: Received Die packet");
       rcv_Die();
-    break;
+      break;
+    case Gamefinish:
+      Serial.println("CAN: Received Gamefinish packet");
+      rcv_Gamefinish();
+      break;
+    case Error:
+      Serial.println("CAN: Received Error packet");
+      rcv_Error();
+      break;
     default:
       Serial.println("CAN: Received unknown packet");
       break;
@@ -271,7 +279,7 @@ void send_Move(uint8_t direction)
 void rcv_Gamefinish(){
   MSG_Gamefinish msg_gamefinish;
   CAN.readBytes((uint8_t *)&msg_gamefinish, sizeof(MSG_Gamefinish));
-  Serial.printf("Game is finished.");
+  Serial.printf("Game is finished.\n");
   for(int i = 0; i < 8; i+=2){
     Serial.printf("Player %u has %u points.\n", msg_gamefinish.Player_IDs[i], msg_gamefinish.Player_IDs[i+1]);
   };

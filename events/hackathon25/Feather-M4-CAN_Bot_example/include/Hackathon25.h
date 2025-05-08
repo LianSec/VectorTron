@@ -26,7 +26,7 @@ enum CAN_MSGs {
     Gameack = 0x120, // client → server: confirm game participation
     Gamestate = 0x050, // server → client: 
     Move = 0x090, // client → server:
-    Dead = 0x080,
+    Die = 0x080,
     Gamefinish = 0x070, // client → server: confirms game is over 
     Error = 0x020 // client → server: receive error if error occurs
 };
