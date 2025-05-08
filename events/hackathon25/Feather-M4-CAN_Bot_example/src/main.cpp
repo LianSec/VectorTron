@@ -18,6 +18,7 @@ void rcv_GameState();
 void send_Move(uint8_t direction);
 void rcv_Die();
 void rcv_Gamefinish();
+void rcv_Error();
 
 // CAN receive callback
 void onReceive(int packetSize)
@@ -274,4 +275,30 @@ void rcv_Gamefinish(){
   for(int i = 0; i < 8; i+=2){
     Serial.printf("Player %u has %u points.\n", msg_gamefinish.Player_IDs[i], msg_gamefinish.Player_IDs[i+1]);
   };
+}
+
+void rcv_Error(){
+  MSG_Error msg_error;
+  CAN.readBytes((uint8_t *)&msg_error, sizeof(MSG_Error));
+
+  Serial.printf("Player %u has received an error (code):%u\n", msg_error.Player_ID, msg_error.Error_Code);
+
+  switch (msg_error.Error_Code)
+  {
+  case 1: 
+    Serial.println("Invalid Player ID."); 
+    break;
+  case 2:
+    Serial.println("Unallowed Name.");
+    break;
+  case 3:
+    Serial.println("You are not playing.");
+    break;
+  case 4:
+    Serial.println("Unknown move.");
+    break;
+  default:
+    Serial.println("Unknown Error Code!");
+    break;
+  }
 }

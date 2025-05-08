@@ -27,7 +27,8 @@ enum CAN_MSGs {
     Gamestate = 0x050, // server → client: 
     Move = 0x090, // client → server:
     Dead = 0x080,
-    Gamefinish = 0x070 // client → server: confirms game is over 
+    Gamefinish = 0x070, // client → server: confirms game is over 
+    Error = 0x020 // client → server: receive error if error occurs
 };
 
 struct __attribute__((packed)) MSG_Join {
@@ -53,5 +54,9 @@ struct __attribute__((packed)) MSG_Move {
 };
 struct __attribute__((packed)) MSG_Gamefinish {
     uint8_t Player_IDs[8];
+};
+struct __attribute__((packed)) MSG_Error{
+    uint8_t Player_ID;
+    uint8_t Error_Code;
 };
 #endif
