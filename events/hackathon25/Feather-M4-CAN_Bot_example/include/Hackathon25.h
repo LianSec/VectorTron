@@ -8,7 +8,6 @@ enum CAN_MSGs {
     Leave = 0x101, // client → server: optional leave
     Player = 0x110, // server → client: assigned PlayerID
     Game = 0x040, // server → clients: new game with 4 players
-    Gameack = 0x120 // client → server: confirm game participation
     Gameack = 0x120, // client → server: confirm game participation
     Move = 0x090 // client → server: send direction to move
 };
