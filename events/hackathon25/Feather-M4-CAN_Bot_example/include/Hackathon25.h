@@ -9,6 +9,8 @@ enum CAN_MSGs {
     Player = 0x110, // server → client: assigned PlayerID
     Game = 0x040, // server → clients: new game with 4 players
     Gameack = 0x120 // client → server: confirm game participation
+    Gameack = 0x120, // client → server: confirm game participation
+    Move = 0x090 // client → server: send direction to move
 };
 
 struct __attribute__((packed)) MSG_Join {
@@ -24,4 +26,8 @@ struct __attribute__((packed)) MSG_Game {
     uint8_t playerIDs[4];
 };
 
+struct __attribute__((packed)) MSG_Move{
+    uint8_t Player_ID;
+    uint8_t Direction; // UP = 1, RIGHT = 2, DOWN = 3, LEFT = 4
+};
 #endif

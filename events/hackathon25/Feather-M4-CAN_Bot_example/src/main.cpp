@@ -12,6 +12,7 @@ void send_Join();
 void rcv_Player();
 void rcv_Game();
 void send_Name(const char* name);
+void send_move();
 
 // CAN receive callback
 void onReceive(int packetSize)
