@@ -28,13 +28,6 @@ enum CAN_MSGs {
     Move = 0x090 // client →  server:
 };
 
-enum Direction {
-    UP = 1,
-    RIGHT = 2,
-    DOWN = 3,
-    LEFT = 4
-  };
-
 struct __attribute__((packed)) MSG_Join {
     uint32_t HardwareID;
 };
