@@ -28,27 +28,27 @@ void onReceive(int packetSize)
     switch (CAN.packetId())
     {
     case Player:
-      Serial.println("CAN: Received Player packet");
+      // Serial.println("CAN: Received Player packet");
       rcv_Player();
       break;
     case Game:
-      Serial.println("CAN: Received Game packet");
+     // Serial.println("CAN: Received Game packet");
       rcv_Game();
       break;
     case Gamestate:
-      Serial.println("CAN: Received Gamestate packet");
+     // Serial.println("CAN: Received Gamestate packet");
       rcv_GameState();
       break;
     case Die:
-      Serial.println("CAN: Received Die packet");
+      // Serial.println("CAN: Received Die packet");
       rcv_Die();
       break;
     case Gamefinish:
-      Serial.println("CAN: Received Gamefinish packet");
+     // Serial.println("CAN: Received Gamefinish packet");
       rcv_Gamefinish();
       break;
     case Error:
-      Serial.println("CAN: Received Error packet");
+     // Serial.println("CAN: Received Error packet");
       rcv_Error();
       break;
     default:
@@ -154,18 +154,16 @@ void rcv_Player()
   if (msg_player.HardwareID == hardware_ID)
   {
     player_ID = msg_player.PlayerID;
-    Serial.printf("Player ID received\n");
 
     // Den Namen senden
     send_Name("Team Rocket");
-    Serial.printf("Player name sent");
   }
   //  else {
   //     player_ID = 0;
   // }
 
-  Serial.printf("Received Player packet | Player ID received: %u | Own Player ID: %u | Hardware ID received: %u | Own Hardware ID: %u\n",
-                msg_player.PlayerID, player_ID, msg_player.HardwareID, hardware_ID);
+ // Serial.printf("Received Player packet | Player ID received: %u | Own Player ID: %u | Hardware ID received: %u | Own Hardware ID: %u\n",
+                // msg_player.PlayerID, player_ID, msg_player.HardwareID, hardware_ID);
 }
 
 void send_GameAck()
@@ -185,12 +183,12 @@ void rcv_Game()
   {
     if (msg_game.playerIDs[i] == player_ID)
     {
-      Serial.println("I'm part of this game – sending gameack.");
+     // Serial.println("I'm part of this game – sending gameack.");
       send_GameAck();
       return;
     }
   }
-  Serial.println("Not part of this game.");
+  //Serial.println("Not part of this game.");
 }
 
 void rcv_GameState() // sets player positions
@@ -273,7 +271,7 @@ void send_Move(uint8_t direction)
   CAN.endPacket();
 
   currentDirection = direction;
-  Serial.printf("Sent move | Player ID: %u | Direction: %u\n", player_ID, direction);
+  //Serial.printf("Sent move | Player ID: %u | Direction: %u\n", player_ID, direction);
 }
 
 void rcv_Gamefinish(){
