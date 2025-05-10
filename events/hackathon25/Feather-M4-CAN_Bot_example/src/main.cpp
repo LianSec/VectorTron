@@ -8,6 +8,19 @@ uint8_t player_ID = 0;
 uint8_t game_ID = 0;
 uint8_t currentDirection = 1; // UP by default
 bool isDead = false;
+bool preferLeft = true;
+#define HISTORY_LEN 3
+uint8_t move_history[HISTORY_LEN] = {0};
+int move_index = 0;
+#define WIDTH 64
+#define HEIGHT 64
+#define MAX_PLAYERS 4
+unsigned long lastMoveTime = 0;
+bool player_alive[MAX_PLAYERS] = { true, true, true, true };
+
+int8_t grid[WIDTH][HEIGHT] = { -1 }; // -1 = frei, 0..3 = Trail von Spieler 1..4
+uint8_t player_positions[MAX_PLAYERS][2] = {{0}};         // aktuelle Positionen der Spieler
+
 
 // Function prototypes
 void send_Join();
@@ -19,6 +32,213 @@ void send_Move(uint8_t direction);
 void rcv_Die();
 void rcv_Gamefinish();
 void rcv_Error();
+uint8_t choose_direction(uint8_t x, uint8_t y);
+#define MAX_QUEUE_SIZE 1024
+int flood_fill_score(uint8_t startX, uint8_t startY, int maxTiles);
+
+
+struct Point {
+  uint8_t x, y;
+};
+
+Point queue[MAX_QUEUE_SIZE];
+int q_head = 0, q_tail = 0;
+
+void q_clear() {
+  q_head = q_tail = 0;
+}
+
+bool q_empty() {
+  return q_head == q_tail;
+}
+
+bool q_push(Point p) {
+  if ((q_tail + 1) % MAX_QUEUE_SIZE == q_head) return false; // overflow
+  queue[q_tail] = p;
+  q_tail = (q_tail + 1) % MAX_QUEUE_SIZE;
+  return true;
+}
+
+Point q_pop() {
+  Point p = queue[q_head];
+  q_head = (q_head + 1) % MAX_QUEUE_SIZE;
+  return p;
+}
+uint8_t choose_direction(uint8_t myX, uint8_t myY) {
+  const uint8_t directions[4] = {UP, DOWN, LEFT, RIGHT};
+  const int dx[4] = {0, 0, -1, 1};
+  const int dy[4] = {-1, 1, 0, 0};
+  int scores[4] = {-1, -1, -1, -1};
+
+  // === Kreisbewegung erkennen ===
+  bool sameTurn = true;
+  if (move_index >= HISTORY_LEN) {
+    uint8_t last = move_history[(move_index - 1) % HISTORY_LEN];
+    for (int i = 2; i <= HISTORY_LEN; i++) {
+      if (move_history[(move_index - i) % HISTORY_LEN] != last) {
+        sameTurn = false;
+        break;
+      }
+    }
+  }
+
+  // === Gefahr direkt voraus erkennen ===
+  int dirIndex = -1;
+  for (int i = 0; i < 4; i++) {
+    if (directions[i] == currentDirection) {
+      dirIndex = i;
+      break;
+    }
+  }
+
+  bool dangerAhead = false;
+  if (dirIndex != -1) {
+    int fx = myX + dx[dirIndex];
+    int fy = myY + dy[dirIndex];
+
+    if (fx < 0 || fx >= WIDTH || fy < 0 || fy >= HEIGHT) {
+      dangerAhead = true;
+    } else {
+      int val = grid[fx][fy];
+      if (val >= 0 && player_alive[val]) {
+        dangerAhead = true;
+      }
+    }
+  }
+
+  if (dangerAhead) {
+    int leftDir, rightDir;
+    switch (currentDirection) {
+      case UP:    leftDir = 2; rightDir = 3; break;
+      case DOWN:  leftDir = 3; rightDir = 2; break;
+      case LEFT:  leftDir = 1; rightDir = 0; break;
+      case RIGHT: leftDir = 0; rightDir = 1; break;
+      default:    leftDir = 0; rightDir = 1; break;
+    }
+
+    int tryDir = preferLeft ? leftDir : rightDir;
+    preferLeft = !preferLeft;
+
+    int nx = myX + dx[tryDir];
+    int ny = myY + dy[tryDir];
+
+    if (nx >= 0 && nx < WIDTH && ny >= 0 && ny < HEIGHT) {
+      int val = grid[nx][ny];
+      if (val == -1 || (val >= 0 && !player_alive[val])) {
+        return directions[tryDir];
+      }
+    }
+    return currentDirection;
+  }
+
+  // === Richtungen bewerten ===
+  for (int i = 0; i < 4; i++) {
+    if ((currentDirection == UP && directions[i] == DOWN) ||
+        (currentDirection == DOWN && directions[i] == UP) ||
+        (currentDirection == LEFT && directions[i] == RIGHT) ||
+        (currentDirection == RIGHT && directions[i] == LEFT)) {
+      continue;
+    }
+
+    int nx = myX + dx[i];
+    int ny = myY + dy[i];
+
+    if (nx < 0 || nx >= WIDTH || ny < 0 || ny >= HEIGHT) continue;
+    int val = grid[nx][ny];
+    if (val != -1 && player_alive[val]) continue;
+
+    if (sameTurn && directions[i] == move_history[(move_index - 1) % HISTORY_LEN]) {
+      continue; // gleiche Richtung vermeiden
+    }
+
+    // Tunnelprüfung
+    bool safe = true;
+    for (int step = 1; step <= 7; step++) {
+      int fx = nx + dx[i] * step;
+      int fy = ny + dy[i] * step;
+
+      if (fx < 0 || fx >= WIDTH || fy < 0 || fy >= HEIGHT) {
+        safe = false; break;
+      }
+      int trail = grid[fx][fy];
+      if (trail >= 0 && player_alive[trail]) {
+        safe = false; break;
+      }
+    }
+
+    if (!safe) continue;
+
+    int score = flood_fill_score(nx, ny, 50);
+    if (score < 8) continue;
+    scores[i] = score;
+  }
+
+  int bestScore = -1;
+  int bestOptions[4];
+  int bestCount = 0;
+
+  for (int i = 0; i < 4; i++) {
+    if (scores[i] > bestScore) {
+      bestScore = scores[i];
+      bestOptions[0] = i;
+      bestCount = 1;
+    } else if (scores[i] == bestScore && bestScore >= 0) {
+      bestOptions[bestCount++] = i;
+    }
+  }
+
+  if (bestCount > 0) {
+    int chosen = bestOptions[random(bestCount)];
+    return directions[chosen];
+  } else {
+    return currentDirection;
+  }
+}
+
+
+int flood_fill_score(uint8_t startX, uint8_t startY, int maxTiles) {
+  if (startX >= WIDTH || startY >= HEIGHT) return 0;
+
+  int8_t val = grid[startX][startY];
+  bool isDeadTrail = (val >= 0 && !player_alive[val]);
+
+  if (val != -1 && !isDeadTrail) return 0; // Startfeld blockiert
+
+  bool visited[WIDTH][HEIGHT] = { false };
+  q_clear();
+
+  q_push({startX, startY});
+  visited[startX][startY] = true;
+
+  const int dx[4] = {0, 0, -1, 1};
+  const int dy[4] = {-1, 1, 0, 0};
+
+  int score = 0;
+
+  while (!q_empty() && score < maxTiles) {
+    Point p = q_pop();
+    score++;
+
+    for (int i = 0; i < 4; i++) {
+      int nx = p.x + dx[i];
+      int ny = p.y + dy[i];
+
+      if (nx < 0 || nx >= WIDTH || ny < 0 || ny >= HEIGHT) continue;
+      if (visited[nx][ny]) continue;
+
+      visited[nx][ny] = true;
+
+      int8_t val = grid[nx][ny];
+      bool isDeadTrail = (val >= 0 && !player_alive[val]);
+
+      if (val == -1 || isDeadTrail) {
+        q_push({(uint8_t)nx, (uint8_t)ny});
+      }
+    }
+  }
+
+  return score;
+}
 
 // CAN receive callback
 void onReceive(int packetSize)
@@ -52,7 +272,7 @@ void onReceive(int packetSize)
       rcv_Error();
       break;
     default:
-      Serial.println("CAN: Received unknown packet");
+     // Serial.println("CAN: Received unknown packet");
       break;
     }
   }
@@ -79,7 +299,7 @@ void setup()
   Serial.begin(115200);
   while (!Serial)
     ;
-
+   randomSeed(analogRead(A0));
   Serial.println("Initializing CAN bus...");
   if (!setupCan(500000))
   {
@@ -93,33 +313,26 @@ void setup()
 
   delay(1000);
   send_Join();
+  // Karte initial mit -1 (= frei) belegen
+  memset(grid, -1, sizeof(grid));
 }
 
-// Loop remains empty, logic is event-driven via CAN callback
 void loop()
 {
-  if (isDead)
-    return;
-  if (Serial.available())
-  {
-    char key = Serial.read();
-    switch (key)
-    {
-    case 'w':
-      send_Move(UP);
-      break;
-    case 'd':
-      send_Move(RIGHT);
-      break;
-    case 's':
-      send_Move(DOWN);
-      break;
-    case 'a':
-      send_Move(LEFT);
-      break;
+ 
+}
+void clear_dead_trail(uint8_t deadPlayerID) {
+  int8_t trail_val = deadPlayerID - 1; // 1 → 0, 2 → 1, etc.
+
+  for (int x = 0; x < WIDTH; x++) {
+    for (int y = 0; y < HEIGHT; y++) {
+      if (grid[x][y] == trail_val) {
+        grid[x][y] = -1; // als frei markieren
+      }
     }
   }
 }
+
 void rcv_Die() {
   uint8_t deadPlayer;
   CAN.readBytes(&deadPlayer, 1);
@@ -130,6 +343,8 @@ void rcv_Die() {
   } else {
     Serial.printf("Player %u has died.\n", deadPlayer);
   }
+  player_alive[deadPlayer - 1] = false;
+  clear_dead_trail(deadPlayer); // Spuren des toten Spielers entfernen
 }
 
 // Send JOIN packet via CAN
@@ -183,74 +398,86 @@ void rcv_Game()
   {
     if (msg_game.playerIDs[i] == player_ID)
     {
-     // Serial.println("I'm part of this game – sending gameack.");
+      memset(grid, -1, sizeof(grid));
+      for (int j = 0; j < MAX_PLAYERS; j++) player_alive[j] = true;
       send_GameAck();
       return;
     }
   }
-  //Serial.println("Not part of this game.");
 }
 
-void rcv_GameState() // sets player positions
+
+
+void rcv_GameState()
 {
   MSG_State msg_gamestate;
   CAN.readBytes((uint8_t *)&msg_gamestate, sizeof(msg_gamestate));
-  for (int i = 0; i < 4; i++)
+
+  for (int i = 0; i < MAX_PLAYERS; i++)
   {
     uint8_t x = msg_gamestate.player[i][0];
     uint8_t y = msg_gamestate.player[i][1];
+    uint8_t lastX = player_positions[i][0];
+    uint8_t lastY = player_positions[i][1];
 
+    // Nur Spieler mit gültiger Position und die noch leben
+    if (player_alive[i] && x < WIDTH && y < HEIGHT && !(x == 255 && y == 255))
+    {
+      // Wenn sich Spieler bewegt hat → vorherige Position als Trail markieren
+      if (lastX < WIDTH && lastY < HEIGHT && !(x == lastX && y == lastY)) {
+        grid[lastX][lastY] = i; // i = 0..3 → Trail von Spieler i+1
+      }
+
+      // Position aktualisieren
+      player_positions[i][0] = x;
+      player_positions[i][1] = y;
+
+      // Aktuelle Position markieren (optional, für bessere Übersicht)
+      grid[x][y] = i;
+    }
+  }
+
+  // === BOT-ENTSCHEIDUNG DIREKT NACH GAMESTATE ===
+  if (!isDead && player_ID > 0)
+  {
+    uint8_t myX = player_positions[player_ID - 1][0];
+    uint8_t myY = player_positions[player_ID - 1][1];
+
+    if (myX != 255 && myY != 255)
+    {
+      uint8_t dir = choose_direction(myX, myY);
+      send_Move(dir);
+    }
   }
 }
 
-void send_Name(const char *name)
+void send_Move(uint8_t direction)
 {
-  uint8_t length = strlen(name);
-  if (length > 20)
-    length = 20; // max. 20 Zeichen
-
-  // Rename-Paket (erste 6 Zeichen)
-  struct __attribute__((packed)) RenamePacket
+  if ((currentDirection == UP && direction == DOWN) ||
+      (currentDirection == DOWN && direction == UP) ||
+      (currentDirection == LEFT && direction == RIGHT) ||
+      (currentDirection == RIGHT && direction == LEFT))
   {
-    uint8_t playerID;
-    uint8_t length;
-    char first6[6];
-  } 
-  
-  renamePacket;
-  renamePacket.playerID = player_ID;
-  renamePacket.length = length;
-  memset(renamePacket.first6, ' ', 6);
-  strncpy(renamePacket.first6, name, 6);
+    Serial.println("Invalid move: backward movement is ignored.");
+    return;
+  }
 
-  CAN.beginPacket(Name);
-  CAN.write((uint8_t *)&renamePacket, sizeof(renamePacket));
+  CAN.beginPacket(Move);
+  CAN.write(player_ID);
+  CAN.write(direction);
   CAN.endPacket();
-  delay(10); // kurze Pause, um Puffer zu schonen
 
-  // Folgepakete (je 7 Zeichen)
-  const char *ptr = name + 6;
-  uint8_t remaining = length > 6 ? length - 6 : 0;
+  currentDirection = direction;
 
-  while (remaining > 0)
+  move_history[move_index % HISTORY_LEN] = direction;
+  move_index++;
+
+  uint8_t x = player_positions[player_ID - 1][0];
+  uint8_t y = player_positions[player_ID - 1][1];
+
+  if (x < WIDTH && y < HEIGHT && x != 255 && y != 255)
   {
-    struct __attribute__((packed)) RenameFollowPacket
-    {
-      uint8_t playerID;
-      char next7[7];
-    } followPacket;
-
-    followPacket.playerID = player_ID;
-    memset(followPacket.next7, ' ', 7);
-    strncpy(followPacket.next7, ptr, 7);
-
-    CAN.beginPacket(0x510);
-    CAN.write((uint8_t *)&followPacket, sizeof(followPacket));
-    CAN.endPacket();
-
-    ptr += 7;
-    remaining = remaining > 7 ? remaining - 7 : 0;
-    delay(10);
+    grid[x][y] = player_ID - 1;
   }
 }
 
@@ -271,7 +498,14 @@ void send_Move(uint8_t direction)
   CAN.endPacket();
 
   currentDirection = direction;
-  //Serial.printf("Sent move | Player ID: %u | Direction: %u\n", player_ID, direction);
+   // === Eigenen Trail setzen ===
+  uint8_t x = player_positions[player_ID - 1][0];
+  uint8_t y = player_positions[player_ID - 1][1];
+
+  if (x < WIDTH && y < HEIGHT && x != 255 && y != 255)
+  {
+    grid[x][y] = player_ID - 1; // Spieler-ID als Trail markieren
+  }
 }
 
 void rcv_Gamefinish(){
@@ -279,7 +513,7 @@ void rcv_Gamefinish(){
   CAN.readBytes((uint8_t *)&msg_gamefinish, sizeof(MSG_Gamefinish));
   Serial.printf("Game is finished.\n");
   for(int i = 0; i < 8; i+=2){
-    Serial.printf("Player %u has %u points.\n", msg_gamefinish.Player_IDs[i], msg_gamefinish.Player_IDs[i+1]);
+    Serial.printf("Player %u has %u points.\n", msg_gamefinish.Player_IDs[i], msg_gamefinish.Player_IDs[i+1]);234
   };
 }
 
@@ -308,3 +542,4 @@ void rcv_Error(){
     break;
   }
 }
+
