@@ -60,7 +60,6 @@ bool setupCan(long baudRate) {
 
 void setup() {
   Serial.begin(115200);
-
   Serial.println("Initializing CAN bus...");
   if (!setupCan(500000)) {
     Serial.println("Error: CAN initialization failed!");
@@ -70,6 +69,7 @@ void setup() {
   CAN.onReceive(onReceive);
   delay(1000);
   send_Join();
+  // Karte initial mit -1 (= frei) belegen
 }
 
 void loop() {}
@@ -84,6 +84,7 @@ void rcv_Die() {
   } else {
     Serial.printf("Player %u has died.\n", deadPlayer);
   }
+  player_alive[deadPlayer - 1] = false;
 }
 
 void send_Join() {
